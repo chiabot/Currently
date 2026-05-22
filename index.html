@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0a0f">
-<title>FX · Currency Converter</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Currently">
+<title>Currently</title>
+<link rel="manifest" id="manifestLink">
+<link rel="apple-touch-icon" id="appleIcon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
@@ -550,7 +556,7 @@
 <body>
 <div class="app">
   <header>
-    <div class="logo">FX<span>.</span></div>
+    <div class="logo">Currently<span>.</span></div>
     <div class="status-pill" id="statusPill">
       <div class="dot"></div>
       <span id="statusText">LOADING</span>
@@ -1128,5 +1134,165 @@ fetchRates();
   </div>
 </div>
 
+<script>
+// ── Icon + Manifest (inline, no external files needed) ──────────────────────
+(function() {
+  // Draw the icon on a canvas and export as base64 PNG
+  function makeIcon(size) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const s = size;
+
+    // Background
+    ctx.fillStyle = '#0a0a0f';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, s, s, s * 0.22);
+    ctx.fill();
+
+    // Subtle grid lines
+    ctx.strokeStyle = 'rgba(232,255,74,0.06)';
+    ctx.lineWidth = 1;
+    const step = s / 5;
+    for (let i = step; i < s; i += step) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(s, i); ctx.stroke();
+    }
+
+    // Glow circle
+    const grd = ctx.createRadialGradient(s/2, s*0.42, 0, s/2, s*0.42, s*0.38);
+    grd.addColorStop(0, 'rgba(232,255,74,0.18)');
+    grd.addColorStop(1, 'rgba(232,255,74,0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, s, s);
+
+    const cx = s / 2;
+    const lw = s * 0.055;
+    const arrowW = s * 0.13;
+    const arrowH = s * 0.11;
+
+    // Left arrow (down-left, accent color)
+    ctx.strokeStyle = '#e8ff4a';
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const lx = cx - s * 0.18;
+    const ltop = s * 0.25;
+    const lbot = s * 0.68;
+    ctx.beginPath();
+    ctx.moveTo(lx, ltop);
+    ctx.lineTo(lx, lbot);
+    ctx.stroke();
+    // arrowhead down
+    ctx.beginPath();
+    ctx.moveTo(lx - arrowW/2, lbot - arrowH);
+    ctx.lineTo(lx, lbot);
+    ctx.lineTo(lx + arrowW/2, lbot - arrowH);
+    ctx.stroke();
+
+    // Right arrow (up-right, teal)
+    ctx.strokeStyle = '#4affda';
+    const rx = cx + s * 0.18;
+    const rtop = s * 0.32;
+    const rbot = s * 0.75;
+    ctx.beginPath();
+    ctx.moveTo(rx, rbot);
+    ctx.lineTo(rx, rtop);
+    ctx.stroke();
+    // arrowhead up
+    ctx.beginPath();
+    ctx.moveTo(rx - arrowW/2, rtop + arrowH);
+    ctx.lineTo(rx, rtop);
+    ctx.lineTo(rx + arrowW/2, rtop + arrowH);
+    ctx.stroke();
+
+    // "C" wordmark at bottom
+    ctx.fillStyle = '#f0f0f8';
+    ctx.font = `700 ${s * 0.13}px "Syne", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Currently', cx, s * 0.87);
+
+    return c.toDataURL('image/png');
+  }
+
+  const icon192 = makeIcon(192);
+  const icon512 = makeIcon(512);
+
+  // Apple touch icon
+  document.getElementById('appleIcon').href = icon512;
+
+  // Inline manifest as blob URL
+  const manifest = {
+    name: 'Currently',
+    short_name: 'Currently',
+    description: 'Live currency & crypto converter',
+    start_url: './',
+    display: 'standalone',
+    background_color: '#0a0a0f',
+    theme_color: '#0a0a0f',
+    orientation: 'portrait',
+    icons: [
+      { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  document.getElementById('manifestLink').href = URL.createObjectURL(blob);
+})();
+
+// ── Service Worker (inline as blob) ─────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'currently-v1';
+const SHELL = [
+  self.location.pathname,
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+
+  // For API calls: network first, fall back to last cached response
+  const isApi = url.hostname.includes('er-api') || url.hostname.includes('coingecko');
+  if (isApi) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // For app shell: cache first
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request))
+  );
+});
+  `;
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, { type: 'classic' })
+    .catch(() => {}); // silently fail on file:// — still works
+}
+</script>
 </body>
 </html>
