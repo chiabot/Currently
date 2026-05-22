@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<title>FX · Currency Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #e8ff4a;
+    --accent2: #4affda;
+    --text: #f0f0f8;
+    --muted: #7070a0;
+    --danger: #ff4a6a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(232,255,74,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,255,74,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blob */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70vw;
+    height: 70vw;
+    max-width: 400px;
+    max-height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(232,255,74,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 440px;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0 20px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+  }
+  .status-pill.live { border-color: rgba(74,255,218,0.3); color: var(--accent2); }
+  .status-pill.error { border-color: rgba(255,74,106,0.3); color: var(--danger); }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-pill.live .dot {
+    background: var(--accent2);
+    box-shadow: 0 0 6px var(--accent2);
+    animation: pulse 2s infinite;
+  }
+  .status-pill.error .dot { background: var(--danger); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Main converter card */
+  .converter-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .currency-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .currency-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .currency-row:focus-within { border-color: var(--accent); }
+
+  .currency-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .flag {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .currency-code {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    min-width: 36px;
+  }
+
+  .chevron {
+    color: var(--muted);
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+
+  .amount-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: right;
+    width: 100%;
+    caret-color: var(--accent);
+  }
+  .amount-input::placeholder { color: var(--muted); }
+  .amount-input::-webkit-outer-spin-button,
+  .amount-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  .amount-display {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: right;
+    cursor: pointer;
+    min-height: 32px;
+    border-bottom: 1.5px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .amount-display.active { border-color: var(--accent); color: var(--accent); }
+  .amount-display:empty::after, #amountValue:empty::after { content: '0'; color: var(--muted); }
+
+  /* Numpad overlay */
+  .numpad-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .numpad-overlay.open { display: flex; }
+
+  .numpad {
+    width: 100%;
+    max-width: 440px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    border-radius: 24px 24px 0 0;
+    padding: 0 0 env(safe-area-inset-bottom, 8px);
+    animation: slideUp 0.22s cubic-bezier(0.34,1.3,0.64,1);
+    user-select: none;
+  }
+
+  .numpad-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px 10px;
+    border-bottom: 1px solid var(--border);
+    min-height: 52px;
+    gap: 12px;
+  }
+
+  .numpad-expression {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    color: var(--text);
+    flex: 1;
+    word-break: break-all;
+    letter-spacing: -0.3px;
+  }
+  .numpad-expression:empty::after { content: '0'; color: var(--muted); }
+
+  .numpad-preview {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .numpad-preview.has-result { color: var(--accent2); }
+
+  .numpad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .nk {
+    background: var(--surface);
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    color: var(--text);
+    padding: 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.08s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .nk:active, .nk.pressed { background: var(--card); }
+
+  .nk-op { font-size: 16px; color: var(--muted); background: var(--card); }
+  .nk-op:active, .nk-op.pressed { background: var(--surface); }
+
+  .nk-accent { color: var(--accent); font-size: 20px; }
+
+  .nk-del { background: var(--card); color: var(--muted); }
+  .nk-del:active, .nk-del.pressed { background: rgba(255,74,106,0.1); color: var(--danger); }
+
+  .nk-eq {
+    background: var(--accent);
+    color: #0a0a0f;
+  }
+  .nk-eq:active, .nk-eq.pressed { background: #c8df20; }
+
+  .amount-result {
+    flex: 1;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent);
+    text-align: right;
+    letter-spacing: -0.5px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .currency-name {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* Swap button */
+  .swap-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 0;
+    z-index: 2;
+  }
+
+  .swap-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    position: relative;
+    top: 0;
+    box-shadow: 0 0 0 4px var(--card), 0 0 20px rgba(232,255,74,0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 3;
+  }
+  .swap-btn:active { transform: rotate(180deg) scale(0.9); }
+  .swap-btn svg { color: #0a0a0f; }
+
+  /* Rate display */
+  .rate-display {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .rate-value { color: var(--text); font-size: 13px; }
+
+  /* Popular pairs */
+  .section-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .pairs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .pair-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pair-chip:active { transform: scale(0.97); border-color: var(--accent); }
+
+  .pair-flags { font-size: 16px; margin-bottom: 2px; }
+  .pair-name { font-size: 11px; color: var(--text); font-weight: 500; font-family: 'Syne', sans-serif; }
+  .pair-rate { font-size: 10px; color: var(--muted); }
+  .pair-rate.loaded { color: var(--accent2); }
+
+  /* Currency picker modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-width: 440px;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal-header {
+    padding: 20px 20px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; }
+  .modal-close {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .search-input {
+    margin: 14px 16px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+    width: calc(100% - 32px);
+    outline: none;
+    flex-shrink: 0;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .currency-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 0 8px 16px;
+  }
+
+  .currency-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .currency-item:active { background: var(--surface); }
+  .currency-item.active { background: rgba(232,255,74,0.08); border: 1px solid rgba(232,255,74,0.2); }
+
+  .ci-flag { font-size: 24px; }
+  .ci-info { flex: 1; }
+  .ci-code { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; }
+  .ci-name { font-size: 11px; color: var(--muted); }
+
+  .loading-shimmer {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--card) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    height: 14px;
+    width: 80px;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  .update-bar {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
+  .update-bar span { color: var(--accent2); }
+
+  .save-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 5px 11px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+  .save-btn:active { transform: scale(0.95); }
+  .save-btn.saved {
+    border-color: rgba(74,255,218,0.4);
+    color: var(--accent2);
+  }
+
+  .crypto-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .crypto-badge.btc { background: rgba(247,147,26,0.15); color: #f7931a; }
+  .crypto-badge.eth { background: rgba(98,126,234,0.15); color: #627eea; }
+  .crypto-badge.sol { background: rgba(153,69,255,0.15); color: #9945ff; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">FX<span>.</span></div>
+    <div class="status-pill" id="statusPill">
+      <div class="dot"></div>
+      <span id="statusText">LOADING</span>
+    </div>
+  </header>
+
+  <div class="converter-card">
+    <div class="currency-block">
+      <!-- FROM -->
+      <div class="currency-row">
+        <div class="currency-selector" onclick="openPicker('from')">
+          <span class="flag" id="fromFlag">🇨🇦</span>
+          <div>
+            <div class="currency-code" id="fromCode">CAD</div>
+            <div class="currency-name" id="fromName">Canadian Dollar</div>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="amount-display" id="amountDisplay" onclick="openNumpad()">
+          <span id="amountValue">1</span>
+        </div>
+      </div>
+
+      <!-- Swap -->
+      <div style="height: 20px; position: relative;">
+        <div class="swap-wrap" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+          <button class="swap-btn" id="swapBtn"
+            onmousedown="startLongPress(event)"
+            onmouseup="endLongPress(event)"
+            onmouseleave="cancelLongPress()"
+            ontouchstart="startLongPress(event)"
+            ontouchend="endLongPress(event)"
+            ontouchcancel="cancelLongPress()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- TO -->
+      <div class="currency-row">
+        <div class="currency-selector" onclick="openPicker('to')">
+          <span class="flag" id="toFlag">🇪🇺</span>
+          <div>
+            <div class="currency-code" id="toCode">EUR</div>
+            <div class="currency-name" id="toName">Euro</div>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="amount-result" id="result">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save pair -->
+  <div style="display:flex; justify-content:flex-end; margin: -6px 4px 10px;">
+    <button class="save-btn" id="saveBtn" onclick="savePair()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      <span id="saveBtnLabel">Save pair</span>
+    </button>
+  </div>
+
+  <!-- Rate info -->
+  <div class="rate-display">
+    <span>1 <span id="rateFrom">USD</span> =</span>
+    <span class="rate-value" id="rateValue">
+      <div class="loading-shimmer"></div>
+    </span>
+  </div>
+
+  <!-- Quick pairs -->
+  <div class="section-label">Quick Pairs</div>
+  <div class="pairs-grid" id="pairsGrid">
+    <!-- injected by JS -->
+  </div>
+
+  <div class="update-bar" id="updateBar">Fetching live rates…</div>
+</div>
+
+<!-- Currency picker modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closePicker(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Select Currency</span>
+      <div class="modal-close" onclick="closePicker()">×</div>
+    </div>
+    <input class="search-input" id="searchInput" placeholder="Search currency…" oninput="filterCurrencies(this.value)">
+    <div class="currency-list" id="currencyList"></div>
+  </div>
+</div>
+
+<script>
+const CURRENCIES = [
+  { code: 'USD', name: 'US Dollar', flag: '🇺🇸' },
+  { code: 'EUR', name: 'Euro', flag: '🇪🇺' },
+  { code: 'CAD', name: 'Canadian Dollar', flag: '🇨🇦' },
+  { code: 'GBP', name: 'British Pound', flag: '🇬🇧' },
+  { code: 'JPY', name: 'Japanese Yen', flag: '🇯🇵' },
+  { code: 'CHF', name: 'Swiss Franc', flag: '🇨🇭' },
+  { code: 'AUD', name: 'Australian Dollar', flag: '🇦🇺' },
+  { code: 'NZD', name: 'New Zealand Dollar', flag: '🇳🇿' },
+  { code: 'CNY', name: 'Chinese Yuan', flag: '🇨🇳' },
+  { code: 'HKD', name: 'Hong Kong Dollar', flag: '🇭🇰' },
+  { code: 'SGD', name: 'Singapore Dollar', flag: '🇸🇬' },
+  { code: 'SEK', name: 'Swedish Krona', flag: '🇸🇪' },
+  { code: 'NOK', name: 'Norwegian Krone', flag: '🇳🇴' },
+  { code: 'DKK', name: 'Danish Krone', flag: '🇩🇰' },
+  { code: 'MXN', name: 'Mexican Peso', flag: '🇲🇽' },
+  { code: 'BRL', name: 'Brazilian Real', flag: '🇧🇷' },
+  { code: 'INR', name: 'Indian Rupee', flag: '🇮🇳' },
+  { code: 'KRW', name: 'South Korean Won', flag: '🇰🇷' },
+  { code: 'TRY', name: 'Turkish Lira', flag: '🇹🇷' },
+  { code: 'ZAR', name: 'South African Rand', flag: '🇿🇦' },
+  { code: 'PLN', name: 'Polish Zloty', flag: '🇵🇱' },
+  { code: 'CZK', name: 'Czech Koruna', flag: '🇨🇿' },
+  { code: 'HUF', name: 'Hungarian Forint', flag: '🇭🇺' },
+  { code: 'ILS', name: 'Israeli Shekel', flag: '🇮🇱' },
+  { code: 'AED', name: 'UAE Dirham', flag: '🇦🇪' },
+  { code: 'SAR', name: 'Saudi Riyal', flag: '🇸🇦' },
+  { code: 'THB', name: 'Thai Baht', flag: '🇹🇭' },
+  { code: 'MYR', name: 'Malaysian Ringgit', flag: '🇲🇾' },
+  { code: 'IDR', name: 'Indonesian Rupiah', flag: '🇮🇩' },
+  { code: 'PHP', name: 'Philippine Peso', flag: '🇵🇭' },
+  { code: 'CLP', name: 'Chilean Peso', flag: '🇨🇱' },
+  { code: 'COP', name: 'Colombian Peso', flag: '🇨🇴' },
+  { code: 'ARS', name: 'Argentine Peso', flag: '🇦🇷' },
+  { code: 'EGP', name: 'Egyptian Pound', flag: '🇪🇬' },
+  { code: 'NGN', name: 'Nigerian Naira', flag: '🇳🇬' },
+  { code: 'PKR', name: 'Pakistani Rupee', flag: '🇵🇰' },
+  { code: 'VND', name: 'Vietnamese Dong', flag: '🇻🇳' },
+  { code: 'UAH', name: 'Ukrainian Hryvnia', flag: '🇺🇦' },
+  { code: 'RON', name: 'Romanian Leu', flag: '🇷🇴' },
+  { code: 'BGN', name: 'Bulgarian Lev', flag: '🇧🇬' },
+  // Crypto
+  { code: 'BTC', name: 'Bitcoin', flag: '₿', crypto: true },
+  { code: 'ETH', name: 'Ethereum', flag: 'Ξ', crypto: true },
+  { code: 'SOL', name: 'Solana', flag: '◎', crypto: true },
+];
+
+const QUICK_PAIRS = [
+  { from: 'BTC', to: 'USD' },
+  { from: 'ETH', to: 'USD' },
+  { from: 'SOL', to: 'USD' },
+  { from: 'BTC', to: 'EUR' },
+  { from: 'ETH', to: 'CAD' },
+  { from: 'SOL', to: 'EUR' },
+];
+
+let rates = {};
+const saved = JSON.parse(localStorage.getItem('fx_pair') || 'null');
+let fromCurrency = saved ? saved.from : 'CAD';
+let toCurrency   = saved ? saved.to   : 'EUR';
+let pickerTarget = 'from';
+let filteredCurrencies = [...CURRENCIES];
+let fetchedAt = null;
+
+function getCurrencyByCode(code) {
+  return CURRENCIES.find(c => c.code === code) || { code, name: code, flag: '🌐' };
+}
+
+async function fetchRates() {
+  try {
+    // Fetch fiat and crypto in parallel
+    const [fiatRes, cryptoRes] = await Promise.all([
+      fetch('https://open.er-api.com/v6/latest/USD'),
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd')
+    ]);
+
+    if (!fiatRes.ok) throw new Error('Fiat fetch failed');
+    const fiatData = await fiatRes.json();
+    if (fiatData.result !== 'success') throw new Error('Fiat API error');
+
+    rates = { ...fiatData.rates };
+
+    // Inject crypto as USD-denominated rates (1 BTC = X USD → rate vs USD base = 1/price)
+    if (cryptoRes.ok) {
+      const cryptoData = await cryptoRes.json();
+      if (cryptoData.bitcoin)  rates['BTC'] = 1 / cryptoData.bitcoin.usd;
+      if (cryptoData.ethereum) rates['ETH'] = 1 / cryptoData.ethereum.usd;
+      if (cryptoData.solana)   rates['SOL'] = 1 / cryptoData.solana.usd;
+    }
+
+    fetchedAt = new Date();
+
+    const pill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    pill.className = 'status-pill live';
+    statusText.textContent = 'LIVE';
+
+    const timeStr = fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('updateBar').innerHTML = `Rates updated at <span>${timeStr}</span> · er-api + coingecko`;
+
+    convert();
+    renderQuickPairs();
+  } catch (e) {
+    const pill = document.getElementById('statusPill');
+    pill.className = 'status-pill error';
+    document.getElementById('statusText').textContent = 'OFFLINE';
+    document.getElementById('updateBar').textContent = 'Could not fetch rates. Check connection.';
+    document.getElementById('result').textContent = '—';
+    document.getElementById('rateValue').textContent = '—';
+  }
+}
+
+function getRate(from, to) {
+  if (!rates[from] || !rates[to]) return null;
+  // All rates are relative to USD
+  return rates[to] / rates[from];
+}
+
+function formatAmount(num, code) {
+  if (num === null || isNaN(num)) return '—';
+  // Crypto displayed with up to 6 decimal places
+  if (['BTC', 'ETH', 'SOL'].includes(code)) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(num);
+  }
+  const decimals = ['JPY','KRW','IDR','VND','HUF','CLP','COP','NGN'].includes(code) ? 0 : 2;
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(num);
+}
+
+function convert() {
+  const raw = document.getElementById('amountValue').textContent;
+  const amount = raw === '' ? 0 : parseFloat(raw.replace(/,/g, ''));
+  const rate = getRate(fromCurrency, toCurrency);
+  const resultEl = document.getElementById('result');
+  const rateEl = document.getElementById('rateValue');
+  const rateFromEl = document.getElementById('rateFrom');
+
+  rateFromEl.textContent = fromCurrency;
+
+  if (rate === null) {
+    resultEl.textContent = '—';
+    rateEl.innerHTML = '<div class="loading-shimmer"></div>';
+    return;
+  }
+
+  const converted = isNaN(amount) ? null : amount * rate;
+  resultEl.textContent = converted !== null ? formatAmount(converted, toCurrency) + ' ' + toCurrency : '—';
+  rateEl.textContent = formatAmount(rate, toCurrency) + ' ' + toCurrency;
+}
+
+let longPressTimer = null;
+let longPressFired = false;
+const LONG_PRESS_MS = 450;
+
+function startLongPress(e) {
+  e.preventDefault();
+  longPressFired = false;
+  longPressTimer = setTimeout(() => {
+    longPressFired = true;
+    swapFull();
+    if (navigator.vibrate) navigator.vibrate(40);
+  }, LONG_PRESS_MS);
+}
+
+function endLongPress(e) {
+  e.preventDefault();
+  clearTimeout(longPressTimer);
+  if (!longPressFired) swapCurrencies();
+}
+
+function cancelLongPress() {
+  clearTimeout(longPressTimer);
+  longPressFired = false;
+}
+
+function swapCurrencies() {
+  [fromCurrency, toCurrency] = [toCurrency, fromCurrency];
+  updateCurrencyUI('from');
+  updateCurrencyUI('to');
+  convert();
+  updateSaveBtn();
+}
+
+function swapFull() {
+  const resultEl = document.getElementById('result');
+  const resultText = resultEl.textContent.replace(/[^0-9.]/g, '');
+  const resultNum = parseFloat(resultText);
+
+  [fromCurrency, toCurrency] = [toCurrency, fromCurrency];
+  updateCurrencyUI('from');
+  updateCurrencyUI('to');
+
+  if (!isNaN(resultNum) && resultNum > 0) {
+    numExpr = String(resultNum);
+    document.getElementById('amountValue').textContent = numExpr;
+  }
+
+  convert();
+  updateSaveBtn();
+
+  const btn = document.getElementById('swapBtn');
+  btn.style.background = 'var(--accent2)';
+  setTimeout(() => { btn.style.background = ''; }, 300);
+}
+
+function updateCurrencyUI(which) {
+  const code = which === 'from' ? fromCurrency : toCurrency;
+  const curr = getCurrencyByCode(code);
+  const flagEl = document.getElementById(which + 'Flag');
+  if (curr.crypto) {
+    const cls = code.toLowerCase();
+    flagEl.className = `crypto-badge ${cls}`;
+  } else {
+    flagEl.className = 'flag';
+  }
+  flagEl.textContent = curr.flag;
+  document.getElementById(which + 'Code').textContent = curr.code;
+  document.getElementById(which + 'Name').textContent = curr.name;
+}
+
+function openPicker(target) {
+  pickerTarget = target;
+  filteredCurrencies = [...CURRENCIES];
+  document.getElementById('searchInput').value = '';
+  renderCurrencyList();
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('searchInput').focus(), 100);
+}
+
+function closePicker(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function filterCurrencies(query) {
+  const q = query.toLowerCase();
+  filteredCurrencies = CURRENCIES.filter(c =>
+    c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+  );
+  renderCurrencyList();
+}
+
+function renderCurrencyList() {
+  const selected = pickerTarget === 'from' ? fromCurrency : toCurrency;
+  const list = document.getElementById('currencyList');
+  list.innerHTML = filteredCurrencies.map(c => {
+    const cryptoClass = c.crypto ? c.code.toLowerCase() : '';
+    const iconHtml = c.crypto
+      ? `<span class="crypto-badge ${cryptoClass}">${c.flag}</span>`
+      : `<span class="ci-flag">${c.flag}</span>`;
+    return `
+      <div class="currency-item ${c.code === selected ? 'active' : ''}" onclick="selectCurrency('${c.code}')">
+        ${iconHtml}
+        <div class="ci-info">
+          <div class="ci-code">${c.code}</div>
+          <div class="ci-name">${c.name}</div>
+        </div>
+        ${c.code === selected ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e8ff4a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function selectCurrency(code) {
+  if (pickerTarget === 'from') {
+    fromCurrency = code;
+    if (toCurrency === code) toCurrency = fromCurrency === 'USD' ? 'EUR' : 'USD';
+  } else {
+    toCurrency = code;
+    if (fromCurrency === code) fromCurrency = toCurrency === 'USD' ? 'EUR' : 'USD';
+  }
+  updateCurrencyUI('from');
+  updateCurrencyUI('to');
+  convert();
+  updateSaveBtn();
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function renderQuickPairs() {
+  const grid = document.getElementById('pairsGrid');
+  grid.innerHTML = QUICK_PAIRS.map(pair => {
+    const rate = getRate(pair.from, pair.to);
+    const from = getCurrencyByCode(pair.from);
+    const to = getCurrencyByCode(pair.to);
+    const rateStr = rate !== null ? formatAmount(rate, pair.to) : '—';
+    return `
+      <div class="pair-chip" onclick="applyPair('${pair.from}','${pair.to}')">
+        <div class="pair-flags">${from.flag} ${to.flag}</div>
+        <div class="pair-name">${pair.from} / ${pair.to}</div>
+        <div class="pair-rate ${rate !== null ? 'loaded' : ''}">${rateStr}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function applyPair(from, to) {
+  fromCurrency = from;
+  toCurrency = to;
+  updateCurrencyUI('from');
+  updateCurrencyUI('to');
+  convert();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function savePair() {
+  localStorage.setItem('fx_pair', JSON.stringify({ from: fromCurrency, to: toCurrency }));
+  updateSaveBtn(true);
+}
+
+function updateSaveBtn(justSaved = false) {
+  const saved = JSON.parse(localStorage.getItem('fx_pair') || 'null');
+  const btn = document.getElementById('saveBtn');
+  const label = document.getElementById('saveBtnLabel');
+  const isSaved = saved && saved.from === fromCurrency && saved.to === toCurrency;
+  if (justSaved || isSaved) {
+    btn.className = 'save-btn saved';
+    label.textContent = 'Saved';
+  } else {
+    btn.className = 'save-btn';
+    label.textContent = 'Save pair';
+  }
+}
+
+// ── Numpad ──────────────────────────────────────────────
+let numExpr = '1';
+let numpadOpen = false;
+
+function openNumpad() {
+  numpadOpen = true;
+  document.getElementById('numpadOverlay').classList.add('open');
+  document.getElementById('amountDisplay').classList.add('active');
+  renderNumpadExpr();
+}
+
+function closeNumpad() {
+  numpadOpen = false;
+  document.getElementById('numpadOverlay').classList.remove('open');
+  document.getElementById('amountDisplay').classList.remove('active');
+}
+
+function closeNumpadOnBg(e) {
+  if (e.target === document.getElementById('numpadOverlay')) closeNumpad();
+}
+
+function safeEval(expr) {
+  // Replace display chars with JS operators, handle %
+  let e = expr
+    .replace(/×/g, '*').replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/(\d+(\.\d+)?)%/g, '($1/100)');
+  try {
+    // Only allow safe characters
+    if (!/^[\d+\-*/().% ]+$/.test(e)) return null;
+    const result = Function('"use strict"; return (' + e + ')')();
+    if (!isFinite(result)) return null;
+    return result;
+  } catch { return null; }
+}
+
+function renderNumpadExpr() {
+  document.getElementById('numpadExpr').textContent = numExpr || '';
+  const preview = document.getElementById('numpadPreview');
+  // Only show preview if expression has an operator
+  if (/[+\-*/×÷%()]/.test(numExpr)) {
+    const val = safeEval(numExpr);
+    if (val !== null) {
+      preview.textContent = '= ' + formatAmount(val, fromCurrency);
+      preview.className = 'numpad-preview has-result';
+    } else {
+      preview.textContent = '';
+      preview.className = 'numpad-preview';
+    }
+  } else {
+    preview.textContent = '';
+    preview.className = 'numpad-preview';
+  }
+}
+
+function nkPress(e, key) {
+  e.preventDefault();
+  const btn = e.currentTarget;
+  btn.classList.add('pressed');
+  setTimeout(() => btn.classList.remove('pressed'), 100);
+
+  if (navigator.vibrate) navigator.vibrate(8);
+
+  if (key === 'del') {
+    numExpr = numExpr.slice(0, -1);
+    if (!numExpr) {
+      document.getElementById('amountValue').textContent = '0';
+      convert();
+      renderNumpadExpr();
+      return;
+    }
+  } else if (key === '=') {
+    const val = safeEval(numExpr);
+    if (val !== null) {
+      // Format cleanly — strip trailing zeros but keep up to 8 sig figs
+      numExpr = parseFloat(val.toPrecision(10)).toString();
+      document.getElementById('amountValue').textContent = numExpr;
+      convert();
+      closeNumpad();
+      return;
+    }
+    return;
+  } else if (key === '%') {
+    numExpr += '%';
+  } else if (['+','-','*','/'].includes(key)) {
+    // Prevent double operator
+    if (/[+\-*/]$/.test(numExpr)) numExpr = numExpr.slice(0,-1);
+    numExpr += key;
+  } else if (key === '.') {
+    // Prevent double dot in current number segment
+    const seg = numExpr.split(/[+\-*/()]/).pop() || '';
+    if (!seg.includes('.')) numExpr += '.';
+  } else {
+    // Starting fresh with a digit clears a lone '0'
+    if (numExpr === '0') numExpr = '';
+    numExpr += key;
+  }
+
+  // Always sync the display value live if expression is a plain number
+  const plain = parseFloat(numExpr);
+  if (!isNaN(plain) && String(plain) === numExpr) {
+    document.getElementById('amountValue').textContent = numExpr;
+    convert();
+  }
+
+  renderNumpadExpr();
+}
+// ── End Numpad ───────────────────────────────────────────
+
+// Init
+updateCurrencyUI('from');
+updateCurrencyUI('to');
+updateSaveBtn();
+renderQuickPairs();
+fetchRates();
+</script>
+<!-- Numpad -->
+<div class="numpad-overlay" id="numpadOverlay" onclick="closeNumpadOnBg(event)">
+  <div class="numpad" id="numpad">
+    <div class="numpad-header">
+      <div class="numpad-expression" id="numpadExpr"></div>
+      <div class="numpad-preview" id="numpadPreview"></div>
+    </div>
+    <div class="numpad-grid">
+      <button class="nk nk-op" ontouchstart="nkPress(event,'(')" onmousedown="nkPress(event,'(')">(</button>
+      <button class="nk nk-op" ontouchstart="nkPress(event,')')" onmousedown="nkPress(event,')')"  >)</button>
+      <button class="nk nk-op" ontouchstart="nkPress(event,'%')" onmousedown="nkPress(event,'%')"  >%</button>
+      <button class="nk nk-op nk-accent" ontouchstart="nkPress(event,'/')" onmousedown="nkPress(event,'/')" >÷</button>
+
+      <button class="nk" ontouchstart="nkPress(event,'7')" onmousedown="nkPress(event,'7')">7</button>
+      <button class="nk" ontouchstart="nkPress(event,'8')" onmousedown="nkPress(event,'8')">8</button>
+      <button class="nk" ontouchstart="nkPress(event,'9')" onmousedown="nkPress(event,'9')">9</button>
+      <button class="nk nk-op nk-accent" ontouchstart="nkPress(event,'*')" onmousedown="nkPress(event,'*')">×</button>
+
+      <button class="nk" ontouchstart="nkPress(event,'4')" onmousedown="nkPress(event,'4')">4</button>
+      <button class="nk" ontouchstart="nkPress(event,'5')" onmousedown="nkPress(event,'5')">5</button>
+      <button class="nk" ontouchstart="nkPress(event,'6')" onmousedown="nkPress(event,'6')">6</button>
+      <button class="nk nk-op nk-accent" ontouchstart="nkPress(event,'-')" onmousedown="nkPress(event,'-')">−</button>
+
+      <button class="nk" ontouchstart="nkPress(event,'1')" onmousedown="nkPress(event,'1')">1</button>
+      <button class="nk" ontouchstart="nkPress(event,'2')" onmousedown="nkPress(event,'2')">2</button>
+      <button class="nk" ontouchstart="nkPress(event,'3')" onmousedown="nkPress(event,'3')">3</button>
+      <button class="nk nk-op nk-accent" ontouchstart="nkPress(event,'+')" onmousedown="nkPress(event,'+')">+</button>
+
+      <button class="nk" ontouchstart="nkPress(event,'0')" onmousedown="nkPress(event,'0')">0</button>
+      <button class="nk" ontouchstart="nkPress(event,'.')" onmousedown="nkPress(event,'.')">.</button>
+      <button class="nk nk-del" ontouchstart="nkPress(event,'del')" onmousedown="nkPress(event,'del')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+      </button>
+      <button class="nk nk-eq" ontouchstart="nkPress(event,'=')" onmousedown="nkPress(event,'=')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
