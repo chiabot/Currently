@@ -1085,6 +1085,39 @@ function nkPress(e, key) {
 
   renderNumpadExpr();
 }
+let delLongTimer = null;
+let delLongFired = false;
+
+function nkDelTouchStart(e) {
+  e.preventDefault();
+  delLongFired = false;
+  const btn = e.currentTarget;
+  btn.classList.add('pressed');
+  delLongTimer = setTimeout(() => {
+    delLongFired = true;
+    if (navigator.vibrate) navigator.vibrate(40);
+    numExpr = '';
+    document.getElementById('amountValue').textContent = '0';
+    convert();
+    renderNumpadExpr();
+    btn.classList.remove('pressed');
+  }, 450);
+}
+
+function nkDelTouchEnd(e) {
+  e.preventDefault();
+  clearTimeout(delLongTimer);
+  const btn = e.currentTarget;
+  btn.classList.remove('pressed');
+  if (!delLongFired) nkPress(e, 'del');
+}
+
+function nkDelCancel() {
+  clearTimeout(delLongTimer);
+  delLongFired = false;
+  document.getElementById('nkDelBtn').classList.remove('pressed');
+}
+
 // ── End Numpad ───────────────────────────────────────────
 
 // Init
@@ -1124,7 +1157,9 @@ fetchRates();
 
       <button class="nk" ontouchstart="nkPress(event,'0')" onmousedown="nkPress(event,'0')">0</button>
       <button class="nk" ontouchstart="nkPress(event,'.')" onmousedown="nkPress(event,'.')">.</button>
-      <button class="nk nk-del" ontouchstart="nkPress(event,'del')" onmousedown="nkPress(event,'del')">
+      <button class="nk nk-del" id="nkDelBtn"
+        ontouchstart="nkDelTouchStart(event)" ontouchend="nkDelTouchEnd(event)" ontouchcancel="nkDelCancel()"
+        onmousedown="nkDelTouchStart(event)" onmouseup="nkDelTouchEnd(event)" onmouseleave="nkDelCancel()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
       </button>
       <button class="nk nk-eq" ontouchstart="nkPress(event,'=')" onmousedown="nkPress(event,'=')">
